@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ME3209 — Topic 10: Trajectory Planning</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;1,300&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --surface2: #181c24;
+    --border: #242834;
+    --accent: #5b8fff;
+    --accent2: #ff6b6b;
+    --accent3: #52e3a0;
+    --text: #e8eaf0;
+    --muted: #7a8196;
+    --highlight: #ffd166;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Lora', Georgia, serif;
+    font-size: 16px;
+    line-height: 1.75;
+    min-height: 100vh;
+  }
+
+  /* ─── GRID BACKGROUND ─── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(91,143,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(91,143,255,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ─── LAYOUT ─── */
+  .site-wrapper {
+    display: flex;
+    min-height: 100vh;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ─── SIDEBAR ─── */
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 2rem 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-track { background: transparent; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .sidebar-brand {
+    padding: 0 1.75rem 2rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+  }
+
+  .sidebar-brand .course-code {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 0.4rem;
+  }
+
+  .sidebar-brand .course-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  .sidebar-brand .topic-badge {
+    display: inline-block;
+    margin-top: 0.6rem;
+    background: rgba(91,143,255,0.12);
+    color: var(--accent);
+    border: 1px solid rgba(91,143,255,0.25);
+    border-radius: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    padding: 0.2rem 0.5rem;
+    letter-spacing: 0.1em;
+  }
+
+  .nav-section {
+    padding: 0 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .nav-section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 0 0.75rem;
+    margin-bottom: 0.4rem;
+    display: block;
+  }
+
+  .nav-link {
+    display: block;
+    padding: 0.45rem 0.75rem;
+    border-radius: 6px;
+    color: var(--muted);
+    text-decoration: none;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 500;
+    transition: all 0.15s;
+    line-height: 1.4;
+  }
+
+  .nav-link:hover, .nav-link.active {
+    background: rgba(91,143,255,0.1);
+    color: var(--accent);
+  }
+
+  .nav-link.sub {
+    padding-left: 1.5rem;
+    font-size: 0.78rem;
+    font-weight: 400;
+    font-family: 'Lora', serif;
+  }
+
+  /* ─── MAIN CONTENT ─── */
+  .main {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+  }
+
+  /* ─── HERO ─── */
+  .hero {
+    padding: 5rem 4rem 4rem;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::after {
+    content: '';
+    position: absolute;
+    top: -80px;
+    right: -80px;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(91,143,255,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--accent);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .hero-eyebrow::before {
+    content: '';
+    display: inline-block;
+    width: 24px;
+    height: 1px;
+    background: var(--accent);
+  }
+
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.2rem, 4vw, 3.5rem);
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--text);
+    margin-bottom: 1.5rem;
+    letter-spacing: -0.02em;
+  }
+
+  .hero h1 em {
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  .hero-desc {
+    font-size: 1.05rem;
+    color: var(--muted);
+    max-width: 560px;
+    margin-bottom: 2rem;
+    line-height: 1.7;
+  }
+
+  .hero-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.75rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+
+  .tag .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent3);
+  }
+
+  /* ─── OBJECTIVES BANNER ─── */
+  .objectives-banner {
+    margin: 3rem 4rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent3);
+    border-radius: 8px;
+    padding: 1.75rem 2rem;
+  }
+
+  .objectives-banner h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent3);
+    margin-bottom: 1rem;
+  }
+
+  .objectives-banner ol {
+    list-style: none;
+    counter-reset: obj;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .objectives-banner ol li {
+    counter-increment: obj;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    font-size: 0.92rem;
+    color: var(--text);
+  }
+
+  .objectives-banner ol li::before {
+    content: counter(obj, decimal-leading-zero);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent3);
+    flex-shrink: 0;
+    margin-top: 0.22rem;
+  }
+
+  /* ─── SECTIONS ─── */
+  .section {
+    padding: 4rem 4rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .section-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--accent);
+    background: rgba(91,143,255,0.1);
+    border: 1px solid rgba(91,143,255,0.2);
+    border-radius: 4px;
+    padding: 0.15rem 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .section h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  .section h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-top: 2.5rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .section h3 .marker {
+    width: 3px;
+    height: 1em;
+    background: var(--accent2);
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .section p {
+    color: #bcc0cc;
+    margin-bottom: 1rem;
+    max-width: 720px;
+    font-size: 0.95rem;
+  }
+
+  /* ─── MATH CARDS ─── */
+  .math-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    position: relative;
+  }
+
+  .math-card .card-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+    display: block;
+  }
+
+  .math-block {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem 1.25rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 1.8;
+    color: #c9d1d9;
+    overflow-x: auto;
+    margin: 0.75rem 0;
+  }
+
+  .math-block .kw { color: var(--accent); }
+  .math-block .val { color: var(--accent3); }
+  .math-block .comment { color: var(--muted); font-style: italic; }
+  .math-block .eq { color: var(--highlight); }
+
+  /* ─── CONCEPT GRID ─── */
+  .concept-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .concept-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .concept-card:hover {
+    border-color: rgba(91,143,255,0.3);
+    transform: translateY(-2px);
+  }
+
+  .concept-card .icon {
+    font-size: 1.4rem;
+    margin-bottom: 0.6rem;
+    display: block;
+  }
+
+  .concept-card h4 {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 0.4rem;
+  }
+
+  .concept-card p {
+    font-size: 0.82rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  /* ─── PHASE DIAGRAM ─── */
+  .phase-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 2rem;
+    margin: 1.5rem 0;
+  }
+
+  .phase-diagram h4 {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+  }
+
+  .phases {
+    display: flex;
+    gap: 0;
+    height: 48px;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .phase {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 400;
+    letter-spacing: 0.05em;
+    transition: flex 0.3s;
+  }
+
+  .phase.accel { background: rgba(91,143,255,0.2); color: var(--accent); border: 1px solid rgba(91,143,255,0.3); }
+  .phase.const { background: rgba(82,227,160,0.15); color: var(--accent3); border: 1px solid rgba(82,227,160,0.25); flex: 2; }
+  .phase.decel { background: rgba(255,107,107,0.15); color: var(--accent2); border: 1px solid rgba(255,107,107,0.25); }
+
+  .phase-labels {
+    display: flex;
+    margin-top: 0.5rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    justify-content: space-between;
+  }
+
+  /* ─── ALGORITHM STEPS ─── */
+  .algo-steps {
+    counter-reset: step;
+    margin: 1.5rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .algo-step {
+    counter-increment: step;
+    display: flex;
+    gap: 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+
+  .algo-step:last-child { border-bottom: none; }
+
+  .algo-step::before {
+    content: counter(step);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+    background: rgba(91,143,255,0.1);
+    border: 1px solid rgba(91,143,255,0.2);
+    border-radius: 50%;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+  }
+
+  .algo-step-content h5 {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.3rem;
+  }
+
+  .algo-step-content p {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin: 0;
+    max-width: 600px;
+  }
+
+  /* ─── CALLOUT ─── */
+  .callout {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-radius: 8px;
+    margin: 1.5rem 0;
+    border: 1px solid;
+    max-width: 720px;
+  }
+
+  .callout.info { background: rgba(91,143,255,0.07); border-color: rgba(91,143,255,0.2); }
+  .callout.tip { background: rgba(82,227,160,0.07); border-color: rgba(82,227,160,0.2); }
+  .callout.warn { background: rgba(255,209,102,0.07); border-color: rgba(255,209,102,0.2); }
+
+  .callout-icon { font-size: 1rem; flex-shrink: 0; margin-top: 0.1rem; }
+
+  .callout p {
+    font-size: 0.875rem;
+    color: #bcc0cc;
+    margin: 0;
+    line-height: 1.65;
+  }
+
+  /* ─── COMPARISON TABLE ─── */
+  .compare-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 1.5rem 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 0.85rem;
+  }
+
+  .compare-table th {
+    background: var(--surface2);
+    font-family: 'Syne', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .compare-table td {
+    padding: 0.75rem 1rem;
+    color: #bcc0cc;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    line-height: 1.55;
+  }
+
+  .compare-table tr:last-child td { border-bottom: none; }
+  .compare-table tr:nth-child(even) td { background: rgba(255,255,255,0.015); }
+
+  .compare-table td:first-child {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    color: var(--text);
+    font-size: 0.82rem;
+  }
+
+  /* ─── EXAMPLE BOX ─── */
+  .example-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: 2px solid var(--highlight);
+    border-radius: 0 0 10px 10px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+  }
+
+  .example-box .ex-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--highlight);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .example-box .ex-label::before {
+    content: '◆';
+    font-size: 0.5rem;
+  }
+
+  .example-box h4 {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 0.75rem;
+  }
+
+  .example-box p {
+    font-size: 0.875rem;
+    color: #bcc0cc;
+    margin-bottom: 0.75rem;
+  }
+
+  /* ─── CANVAS SVG DIAGRAMS ─── */
+  .diagram-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    overflow: hidden;
+  }
+
+  .diagram-wrap svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  /* ─── SPLINE TYPES ─── */
+  .spline-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .spline-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .spline-card .spline-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-top: 0.75rem;
+  }
+
+  .spline-card .spline-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-top: 0.25rem;
+  }
+
+  /* ─── FOOTER ─── */
+  footer {
+    padding: 3rem 4rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: gap;
+  }
+
+  footer .foot-left {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+
+  footer .foot-right {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .hero-eyebrow { animation: fadeUp 0.5s ease both; }
+  .hero h1 { animation: fadeUp 0.5s 0.1s ease both; }
+  .hero-desc { animation: fadeUp 0.5s 0.2s ease both; }
+  .hero-tags { animation: fadeUp 0.5s 0.3s ease both; }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .hero { padding: 3rem 1.5rem 2.5rem; }
+    .section { padding: 3rem 1.5rem; }
+    .objectives-banner { margin: 2rem 1.5rem; }
+    footer { padding: 2rem 1.5rem; flex-direction: column; gap: 0.5rem; }
+    .spline-cards { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="site-wrapper">
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      <span class="course-code">ME3209</span>
+      <div class="course-title">Robotics &amp; Mechanisms</div>
+      <span class="topic-badge">Topic 10</span>
+    </div>
+
+    <div class="nav-section">
+      <span class="nav-section-label">Overview</span>
+      <a href="#intro" class="nav-link">Introduction</a>
+      <a href="#objectives" class="nav-link">Objectives</a>
+    </div>
+
+    <div class="nav-section">
+      <span class="nav-section-label">1 · Basic Concepts</span>
+      <a href="#geometry" class="nav-link sub">1.1 Path &amp; Trajectory</a>
+      <a href="#cspace" class="nav-link sub">1.2 C-Space</a>
+    </div>
+
+    <div class="nav-section">
+      <span class="nav-section-label">2 · Joint Space</span>
+      <a href="#joint-intro" class="nav-link sub">2.1 Introduction</a>
+      <a href="#poly" class="nav-link sub">2.2 Polynomial Trajectories</a>
+      <a href="#multiphase" class="nav-link sub">2.3 Multi-Phase Trajectories</a>
+    </div>
+
+    <div class="nav-section">
+      <span class="nav-section-label">3 · Workspace</span>
+      <a href="#ws-intro" class="nav-link sub">3.1 Introduction</a>
+      <a href="#ws-position" class="nav-link sub">3.2 Position Trajectories</a>
+      <a href="#ws-orient" class="nav-link sub">3.3 Orientation Trajectories</a>
+    </div>
+
+    <div class="nav-section">
+      <span class="nav-section-label">4 · Concatenation</span>
+      <a href="#concat-intro" class="nav-link sub">4.1 Introduction</a>
+      <a href="#concat-vel" class="nav-link sub">4.2 Velocity Constraints</a>
+      <a href="#concat-acc" class="nav-link sub">4.3 Acceleration Continuity</a>
+    </div>
+  </nav>
+
+  <!-- ═══ MAIN ═══ -->
+  <main class="main">
+
+    <!-- HERO -->
+    <section class="hero" id="intro">
+      <div class="hero-eyebrow">Faculty of Applied Mechanics</div>
+      <h1>Trajectory<br><em>Planning</em></h1>
+      <p class="hero-desc">
+        A complete guide to designing smooth, feasible robot trajectories — from basic geometric paths and C-space representations through joint-space polynomials, workspace curves, and spline-based concatenated trajectories.
+      </p>
+      <div class="hero-tags">
+        <span class="tag"><span class="dot"></span>Joint Space</span>
+        <span class="tag"><span class="dot" style="background:var(--accent)"></span>Workspace</span>
+        <span class="tag"><span class="dot" style="background:var(--highlight)"></span>Splines</span>
+        <span class="tag"><span class="dot" style="background:var(--accent2)"></span>C-Space</span>
+      </div>
+    </section>
+
+    <!-- OBJECTIVES -->
+    <div class="objectives-banner" id="objectives">
+      <h3>Learning Objectives</h3>
+      <ol>
+        <li>Understand basic concepts: geometry path, timing law, configuration space (C-space).</li>
+        <li>Design trajectory in the robot joint space and workspace using polynomial and spline methods.</li>
+        <li>Combine multiple trajectory segments into a smooth, continuous concatenated trajectory.</li>
+      </ol>
+    </div>
+
+    <!-- ═══════════════════════════════════════
+         SECTION 1: BASIC CONCEPTS
+    ════════════════════════════════════════ -->
+    <section class="section" id="geometry">
+      <div class="section-header">
+        <span class="section-num">01</span>
+        <h2>Geometry Path &amp; Trajectory</h2>
+      </div>
+
+      <p>A <strong>geometry path</strong> describes the locus of the end-effector or joint configuration in parametric form — independent of time. A <strong>trajectory</strong> attaches a timing law <em>s(t)</em> to that path, giving the robot motion its temporal dimension.</p>
+
+      <div class="concept-grid">
+        <div class="concept-card">
+          <span class="icon">📍</span>
+          <h4>Path in Workspace</h4>
+          <p>The locus of the end-effector expressed as <strong>p(s)</strong> in Cartesian coordinates, parameterised by curve length <em>s ∈ [0, L]</em>.</p>
+        </div>
+        <div class="concept-card">
+          <span class="icon">⚙️</span>
+          <h4>Path in Joint Space</h4>
+          <p>Described as a vector of joint variables <strong>q(σ)</strong> where each joint variable is a function of parameter <em>σ ∈ [σ_min, σ_max]</em>.</p>
+        </div>
+        <div class="concept-card">
+          <span class="icon">⏱️</span>
+          <h4>Timing Law</h4>
+          <p>The function <strong>s = s(t)</strong> (or σ = σ(t)) maps time to path progress, turning a geometric curve into a trajectory with velocity and acceleration profiles.</p>
+        </div>
+        <div class="concept-card">
+          <span class="icon">🔄</span>
+          <h4>Complete Trajectory</h4>
+          <p>Combining path + timing law gives <strong>p(s(t))</strong> or <strong>q(σ(t))</strong> — a position function of time with continuous velocity guarantees.</p>
+        </div>
+      </div>
+
+      <h3><span class="marker"></span>Workspace vs. Joint Space</h3>
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Aspect</th>
+            <th>Workspace (Cartesian)</th>
+            <th>Joint Space (Config.)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>End-effector constraints</td>
+            <td>Natural, easy to specify</td>
+            <td>Require IK transformation</td>
+          </tr>
+          <tr>
+            <td>Obstacle avoidance</td>
+            <td>Straightforward for simple environments</td>
+            <td>Better for redundant robots</td>
+          </tr>
+          <tr>
+            <td>Joint limits</td>
+            <td>Must be checked afterward</td>
+            <td>Directly enforced</td>
+          </tr>
+          <tr>
+            <td>Singularity handling</td>
+            <td>Challenging</td>
+            <td>Can be designed around</td>
+          </tr>
+          <tr>
+            <td>Control implementation</td>
+            <td>Needs IK at runtime</td>
+            <td>Direct motor commands</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- C-SPACE -->
+    <section class="section" id="cspace">
+      <div class="section-header">
+        <span class="section-num">01.2</span>
+        <h2>Configuration Space (C-Space)</h2>
+      </div>
+
+      <p>The <strong>configuration space</strong> (C-space) is a multidimensional space where each dimension corresponds to one degree of freedom (one joint). A single point in C-space represents a complete robot configuration.</p>
+
+      <div class="callout info">
+        <span class="callout-icon">ℹ️</span>
+        <p>For an <em>n</em>-DOF robot, the C-space is <em>n</em>-dimensional. A 2-DOF planar robot has a 2D C-space; the full configuration is given by the pair (q₁, q₂).</p>
+      </div>
+
+      <h3><span class="marker"></span>Path Planning in C-Space</h3>
+      <p>Planning algorithms sample points in C-space and connect them into feasible motion paths. Obstacles in physical space become regions in C-space — <strong>C-obstacles</strong> — that the path must avoid.</p>
+
+      <div class="phase-diagram">
+        <h4>2-DOF Robot C-Space Representation</h4>
+        <div style="display:flex;gap:2rem;align-items:flex-start;flex-wrap:wrap;">
+          <div style="flex:1;min-width:200px;">
+            <p style="font-size:0.8rem;color:var(--muted);margin-bottom:0.5rem">Joint constraints example:</p>
+            <div class="math-block">
+<span class="kw">Joint 1:</span>  <span class="val">0°  ≤ q₁ ≤ 180°</span>
+<span class="kw">Joint 2:</span>  <span class="val">0°  ≤ q₂ ≤ 360°</span>
+<span class="comment">// Each (q₁,q₂) pair is a point
+// in 2D configuration space</span>
+            </div>
+          </div>
+          <div style="flex:1;min-width:200px;">
+            <p style="font-size:0.8rem;color:var(--muted);margin-bottom:0.5rem">Path planning goal:</p>
+            <div class="algo-steps" style="margin:0;">
+              <div class="algo-step"><div class="algo-step-content"><h5>Start configuration</h5><p>Point q_A in C-space</p></div></div>
+              <div class="algo-step"><div class="algo-step-content"><h5>Avoid C-obstacles</h5><p>Regions blocked by physical obstacles</p></div></div>
+              <div class="algo-step"><div class="algo-step-content"><h5>Goal configuration</h5><p>Point q_B in C-space</p></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════
+         SECTION 2: JOINT SPACE
+    ════════════════════════════════════════ -->
+    <section class="section" id="joint-intro">
+      <div class="section-header">
+        <span class="section-num">02</span>
+        <h2>Trajectory Planning in Joint Space</h2>
+      </div>
+      <p>Joint-space trajectories describe how each joint variable evolves over time, rather than specifying the end-effector path directly. This approach is natural for low-level motor control.</p>
+
+      <div class="concept-grid">
+        <div class="concept-card">
+          <span class="icon">📏</span>
+          <h4>Linear Trajectory</h4>
+          <p>Each joint follows a straight line from initial to target configuration. Simple but may violate velocity continuity at waypoints.</p>
+        </div>
+        <div class="concept-card">
+          <span class="icon">〰️</span>
+          <h4>Spline Trajectory</h4>
+          <p>Cubic or quintic splines interpolate smoothly between configurations, ensuring continuous position, velocity, and optionally acceleration.</p>
+        </div>
+        <div class="concept-card">
+          <span class="icon">🎯</span>
+          <h4>Point-to-Point (PTP)</h4>
+          <p>Moves from one joint configuration to another — the workhorse of pick-and-place and manipulation tasks.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- POLYNOMIAL -->
+    <section class="section" id="poly">
+      <div class="section-header">
+        <span class="section-num">02.2</span>
+        <h2>Point-to-Point Polynomial Trajectories</h2>
+      </div>
+
+      <h3><span class="marker"></span>Cubic Polynomial (3rd Order)</h3>
+      <p>Four boundary conditions (position and velocity at start and end) uniquely determine a cubic polynomial. Given <em>tᵢ, tᶠ, qᵢ, qᶠ, q̇ᵢ, q̇ᶠ</em>:</p>
+
+      <div class="math-card">
+        <span class="card-label">Position function</span>
+        <div class="math-block">
+<span class="eq">q(t) = a₃(t-tᵢ)³ + a₂(t-tᵢ)² + a₁(t-tᵢ) + a₀</span>
+        </div>
+        <span class="card-label" style="margin-top:1rem">Matrix system  [ h = tᶠ − tᵢ ]</span>
+        <div class="math-block">
+⎡ 1   0    0    0  ⎤ ⎡a₀⎤   ⎡ qᵢ ⎤
+⎢ 0   1    0    0  ⎥ ⎢a₁⎥ = ⎢ q̇ᵢ ⎥
+⎢ 1   h   h²   h³  ⎥ ⎢a₂⎥   ⎢ qᶠ ⎥
+⎣ 0   1   2h   3h² ⎦ ⎣a₃⎦   ⎣ q̇ᶠ ⎦
+        </div>
+      </div>
+
+      <div class="example-box">
+        <div class="ex-label">Worked Example 1 — Zero velocity endpoints</div>
+        <h4>Boundary Conditions</h4>
+        <div class="math-block">
+tᵢ=0,  q(0)=10°,  q̇(0)=0
+tᶠ=4,  q(4)=45°,  q̇(4)=0
+        </div>
+        <div class="math-block">
+<span class="comment">// Solution vector:</span>
+<span class="eq">a = [10.00,  0,  6.5625,  −1.0938]ᵀ</span>
+
+<span class="comment">// Resulting trajectory:</span>
+<span class="kw">q(t)</span> = <span class="val">10 + 6.5625 t² − 1.0938 t³</span>
+        </div>
+      </div>
+
+      <h3><span class="marker"></span>Quintic Polynomial (5th Order)</h3>
+      <p>Six boundary conditions — position, velocity, <em>and acceleration</em> at both endpoints — determine a quintic. This ensures smoother motion with no acceleration discontinuities.</p>
+
+      <div class="math-card">
+        <span class="card-label">Position function</span>
+        <div class="math-block">
+<span class="eq">q(t) = a₅(t-tᵢ)⁵ + a₄(t-tᵢ)⁴ + a₃(t-tᵢ)³ + a₂(t-tᵢ)² + a₁(t-tᵢ) + a₀</span>
+        </div>
+        <span class="card-label" style="margin-top:1rem">6×6 Matrix system  [ h = tᶠ − tᵢ ]</span>
+        <div class="math-block">
+⎡1   0    0    0    0    0 ⎤ ⎡a₀⎤   ⎡ qᵢ  ⎤
+⎢0   1    0    0    0    0 ⎥ ⎢a₁⎥   ⎢ q̇ᵢ  ⎥
+⎢0   0    2    0    0    0 ⎥ ⎢a₂⎥ = ⎢ q̈ᵢ  ⎥
+⎢1   h   h²   h³   h⁴   h⁵⎥ ⎢a₃⎥   ⎢ qᶠ  ⎥
+⎢0   1   2h  3h²  4h³  5h⁴⎥ ⎢a₄⎥   ⎢ q̇ᶠ  ⎥
+⎣0   0    2   6h  12h² 20h³⎦ ⎣a₅⎦   ⎣ q̈ᶠ  ⎦
+        </div>
+      </div>
+
+      <div class="callout tip">
+        <span class="callout-icon">💡</span>
+        <p>Quintic polynomials are preferred when smooth, jerk-limited motion is critical — e.g., in medical robotics, painting, or precision assembly.</p>
+      </div>
+    </section>
+
+    <!-- MULTI-PHASE -->
+    <section class="section" id="multiphase">
+      <div class="section-header">
+        <span class="section-num">02.3</span>
+        <h2>Multi-Phase (Trapezoidal) Trajectories</h2>
+      </div>
+
+      <p>An industrial favourite: a piecewise trajectory combining constant-acceleration, constant-velocity, and constant-deceleration phases — giving a trapezoidal velocity profile.</p>
+
+      <div class="phase-diagram">
+        <h4>Isosceles Trapezoidal Velocity Profile</h4>
+        <div class="phases">
+          <div class="phase accel">Accel<br><span style="font-size:0.6em">[0, tₐ]</span></div>
+          <div class="phase const">Constant Velocity<br><span style="font-size:0.6em">[tₐ, tᶠ−tₐ]</span></div>
+          <div class="phase decel">Decel<br><span style="font-size:0.6em">[tᶠ−tₐ, tᶠ]</span></div>
+        </div>
+        <div class="phase-labels">
+          <span>t = 0</span><span>t = tₐ</span><span>t = tᶠ − tₐ</span><span>t = tᶠ</span>
+        </div>
+      </div>
+
+      <h3><span class="marker"></span>Design Equations</h3>
+      <div class="math-card">
+        <span class="card-label">Feasibility condition on acceleration</span>
+        <div class="math-block">
+<span class="comment">// Minimum required acceleration:</span>
+<span class="eq">a ≥  4|qᶠ − qᵢ| / tᶠ²</span>
+
+<span class="comment">// Acceleration time:</span>
+<span class="eq">tₐ = tᶠ/2 − √(tᶠ²/4 − (qᶠ−qᵢ)/a)  /  2</span>
+
+<span class="comment">// Peak velocity:</span>
+<span class="eq">vₘₐₓ = a · tₐ</span>
+        </div>
+      </div>
+
+      <div class="example-box">
+        <div class="ex-label">Worked Example — Trapezoidal profile</div>
+        <h4>Given: q(0)=0°, q(4s)=30°, aₘₐₓ=10°/s²</h4>
+        <div class="math-block">
+<span class="comment">// Check feasibility:</span>
+<span class="eq">4|30-0|/16 = 7.5 &lt; 10 ✓</span>
+
+<span class="comment">// Acceleration time:</span>
+<span class="eq">tₐ = 1 s  →  vₘₐₓ = 10 °/s</span>
+
+<span class="kw">Accel  [0,1]:</span>   <span class="val">q(t) = 5t²</span>
+<span class="kw">Const  [1,3]:</span>   <span class="val">q(t) = 10t − 5</span>
+<span class="kw">Decel  [3,4]:</span>   <span class="val">q(t) = −5t² + 40t − 50</span>
+        </div>
+      </div>
+
+      <div class="callout info">
+        <span class="callout-icon">ℹ️</span>
+        <p>Other multi-phase profiles include <strong>isosceles trapezoidal acceleration</strong> (smoother velocity transitions) and <strong>sinusoidal acceleration</strong> (zero jerk at phase boundaries).</p>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════
+         SECTION 3: WORKSPACE
+    ════════════════════════════════════════ -->
+    <section class="section" id="ws-intro">
+      <div class="section-header">
+        <span class="section-num">03</span>
+        <h2>Trajectory Planning in Workspace</h2>
+      </div>
+
+      <p>Workspace trajectory design plans paths for the end-effector directly in Cartesian space. The same polynomial/spline techniques apply, but with Cartesian coordinates (x, y, z) and orientation.</p>
+
+      <div class="concept-grid">
+        <div class="concept-card">
+          <span class="icon">📐</span>
+          <h4>Point-to-Point</h4>
+          <p>End-effector moves directly from start to goal. Solved by applying IK at both ends and designing joint trajectories.</p>
+        </div>
+        <div class="concept-card">
+          <span class="icon">➡️</span>
+          <h4>Linear Trajectory</h4>
+          <p>End-effector tracks a straight-line path. Parameterised by arc length <em>s</em> with a separate timing law.</p>
+        </div>
+        <div class="concept-card">
+          <span class="icon">🔵</span>
+          <h4>Circular Trajectory</h4>
+          <p>End-effector follows a circular arc described in a local frame attached to the circle centre.</p>
+        </div>
+        <div class="concept-card">
+          <span class="icon">🛤️</span>
+          <h4>Spline / Waypoints</h4>
+          <p>Smooth curves through a set of intermediate waypoints — ideal for obstacle avoidance or complex part geometries.</p>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <span class="callout-icon">⚠️</span>
+        <p>Workspace trajectories require running inverse kinematics at each discretisation step — this increases computational cost. Interpolation between discrete points introduces position errors whose magnitude depends on step resolution and algorithm choice.</p>
+      </div>
+    </section>
+
+    <!-- POSITION TRAJECTORY -->
+    <section class="section" id="ws-position">
+      <div class="section-header">
+        <span class="section-num">03.2</span>
+        <h2>End-Effector Position Trajectories</h2>
+      </div>
+
+      <h3><span class="marker"></span>Linear Trajectory</h3>
+      <p>The parametric line from <strong>p_A</strong> to <strong>p_B</strong> (length <em>L</em>) is:</p>
+      <div class="math-card">
+        <div class="math-block">
+<span class="eq">p(s) = p_A + (s/L)(p_B − p_A)</span>
+<span class="comment">
+// s ∈ [0, L],  velocity: ṗ = (p_B − p_A)/L · ṡ
+// Choose s(t) as cubic polynomial for v-boundary conditions:
+</span>
+<span class="kw">s</span>(tₐ) = 0,  <span class="kw">ṡ</span>(tₐ) = vₐ
+<span class="kw">s</span>(tʙ) = L,  <span class="kw">ṡ</span>(tʙ) = vʙ
+        </div>
+      </div>
+
+      <div class="example-box">
+        <div class="ex-label">Example — Linear path A(1,1,0) → B(4,5,0), T=4s</div>
+        <div class="math-block">
+<span class="comment">// Direction unit vector:</span>
+<span class="eq">û = [3, 4, 0]ᵀ / 5</span>
+
+<span class="comment">// Cubic timing law s(t) with ṡ(0)=0, ṡ(4)=5:</span>
+<span class="eq">s(t) = −0.1563 t³ + 0.3125 t²</span>
+
+<span class="kw">x(t)</span> = <span class="val">1 + (3/5)·s(t)</span>
+<span class="kw">y(t)</span> = <span class="val">1 + (4/5)·s(t)</span>
+        </div>
+      </div>
+
+      <h3><span class="marker"></span>Circular Trajectory</h3>
+      <p>The end-effector traces an arc of radius <em>r</em>, centre <strong>C</strong>, from angle <em>θ₀</em> to <em>θᶠ</em> in a local frame.</p>
+      <div class="math-card">
+        <div class="math-block">
+<span class="eq">p_M(s) = p_C + R⁰₁ · u_M(s)</span>
+
+<span class="comment">// Parametric position on arc:</span>
+<span class="kw">u_M(s)</span> = r·[ cos(θ₀ + s/r),  sin(θ₀ + s/r),  0 ]ᵀ
+
+<span class="comment">// Velocity and acceleration:</span>
+<span class="eq">ṗ_M = (dp_M/ds)·ṡ = t·ṡ</span>
+<span class="eq">p̈_M = t·s̈ + (ṡ²/r)·n</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ORIENTATION -->
+    <section class="section" id="ws-orient">
+      <div class="section-header">
+        <span class="section-num">03.3</span>
+        <h2>End-Effector Orientation Trajectories</h2>
+      </div>
+
+      <p>Orientation can be parameterised via Euler angles, RPY angles, or axis-angle representation. Independent polynomial interpolation is applied to each angle.</p>
+
+      <div class="math-card">
+        <span class="card-label">Linear Euler-angle interpolation</span>
+        <div class="math-block">
+<span class="kw">φ(s(t))</span> = φᵢ + s(t)·(φᶠ − φᵢ)/‖Δφ‖
+<span class="kw">ϑ(s(t))</span> = ϑᵢ + s(t)·(ϑᶠ − ϑᵢ)/‖Δϑ‖
+<span class="kw">ψ(s(t))</span> = ψᵢ + s(t)·(ψᶠ − ψᵢ)/‖Δψ‖
+        </div>
+      </div>
+
+      <div class="callout info">
+        <span class="callout-icon">ℹ️</span>
+        <p>At minimum, <strong>angular velocity continuity</strong> must be ensured. More demanding applications require angular acceleration continuity as well.</p>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════
+         SECTION 4: CONCATENATED
+    ════════════════════════════════════════ -->
+    <section class="section" id="concat-intro">
+      <div class="section-header">
+        <span class="section-num">04</span>
+        <h2>Concatenated Trajectory Planning</h2>
+      </div>
+
+      <p>A <strong>concatenated trajectory</strong> joins multiple trajectory segments end-to-end into a seamless motion sequence — enabling complex multi-step tasks from modular building blocks.</p>
+
+      <div class="concept-grid">
+        <div class="concept-card">
+          <span class="icon">🧩</span>
+          <h4>Modularity</h4>
+          <p>Each segment is designed independently; segments combine into complex motion sequences.</p>
+        </div>
+        <div class="concept-card">
+          <span class="icon">🔗</span>
+          <h4>Smooth Transitions</h4>
+          <p>Carefully designed junction conditions ensure continuity of position, velocity, and acceleration.</p>
+        </div>
+        <div class="concept-card">
+          <span class="icon">🎛️</span>
+          <h4>Flexibility</h4>
+          <p>Segments can have different profiles: linear, circular, polynomial, trapezoidal, etc.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- VELOCITY CONSTRAINTS -->
+    <section class="section" id="concat-vel">
+      <div class="section-header">
+        <span class="section-num">04.2</span>
+        <h2>Waypoint Trajectory — Velocity Continuity</h2>
+      </div>
+
+      <p>Using <strong>N cubic polynomials</strong> for N segments, boundary conditions at each waypoint enforce position and velocity continuity (C¹). Acceleration may be discontinuous.</p>
+
+      <div class="math-card">
+        <span class="card-label">Segment k polynomial  (h_k = t_{k+1} − t_k)</span>
+        <div class="math-block">
+<span class="eq">q_k(t) = a₃ₖ(t−tₖ)³ + a₂ₖ(t−tₖ)² + a₁ₖ(t−tₖ) + a₀ₖ</span>
+
+<span class="comment">// 4 conditions per segment:</span>
+q_k(tₖ) = qₖ        q̇_k(tₖ) = q̇ₖ
+q_k(tₖ₊₁) = qₖ₊₁   q̇_k(tₖ₊₁) = q̇ₖ₊₁
+        </div>
+      </div>
+
+      <div class="example-box">
+        <div class="ex-label">Example — 5 waypoints, prescribed velocities</div>
+        <div class="math-block">
+t  = [ 0   2   4   6   8  10 ]
+q  = [-10  20   0  30  40  40 ]
+q̇  = [  0  10 -10  10   0   0 ]
+<span class="comment">// Result: C¹ continuity (pos + vel), C⁰ acceleration jumps at nodes</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACCELERATION CONTINUITY -->
+    <section class="section" id="concat-acc">
+      <div class="section-header">
+        <span class="section-num">04.3</span>
+        <h2>Waypoint Trajectory — Acceleration Continuity</h2>
+      </div>
+
+      <h3><span class="marker"></span>Approach A: Prescribed Derivatives</h3>
+      <p>Use <strong>N quintic polynomials</strong> with position, velocity, <em>and acceleration</em> prescribed at every waypoint — guaranteed C² continuity.</p>
+
+      <h3><span class="marker"></span>Approach B: Natural / Clamped Splines</h3>
+      <p>Use <strong>N cubic splines</strong> with continuity up to the second derivative enforced at interior nodes, plus two extra conditions at the endpoints.</p>
+
+      <div class="spline-cards">
+        <div class="spline-card">
+          <svg viewBox="0 0 100 60" xmlns="http://www.w3.org/2000/svg" style="max-height:60px">
+            <path d="M5,55 C25,55 30,5 50,5 C70,5 75,55 95,55" fill="none" stroke="#5b8fff" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="5" cy="55" r="3" fill="#5b8fff"/>
+            <circle cx="95" cy="55" r="3" fill="#5b8fff"/>
+          </svg>
+          <div class="spline-label">End condition</div>
+          <div class="spline-name">Natural Spline</div>
+          <p style="font-size:0.72rem;color:var(--muted);margin-top:0.4rem">q̈(t₀) = q̈(tₙ) = 0 — zero curvature at endpoints</p>
+        </div>
+        <div class="spline-card">
+          <svg viewBox="0 0 100 60" xmlns="http://www.w3.org/2000/svg" style="max-height:60px">
+            <path d="M5,45 C15,15 30,5 50,5 C70,5 85,45 95,15" fill="none" stroke="#52e3a0" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="5" cy="45" r="3" fill="#52e3a0"/>
+            <circle cx="95" cy="15" r="3" fill="#52e3a0"/>
+          </svg>
+          <div class="spline-label">End condition</div>
+          <div class="spline-name">Clamped Spline</div>
+          <p style="font-size:0.72rem;color:var(--muted);margin-top:0.4rem">q̇(t₀), q̇(tₙ) prescribed — controlled endpoint slopes</p>
+        </div>
+        <div class="spline-card">
+          <svg viewBox="0 0 100 60" xmlns="http://www.w3.org/2000/svg" style="max-height:60px">
+            <path d="M5,50 C20,5 35,5 50,30 C65,55 80,55 95,10" fill="none" stroke="#ffd166" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="5" cy="50" r="3" fill="#ffd166"/>
+            <circle cx="95" cy="10" r="3" fill="#ffd166"/>
+          </svg>
+          <div class="spline-label">End condition</div>
+          <div class="spline-name">Not-A-Knot</div>
+          <p style="font-size:0.72rem;color:var(--muted);margin-top:0.4rem">3rd derivative matches at 1st and (N−1)th interior knot</p>
+        </div>
+      </div>
+
+      <h3><span class="marker"></span>Reduced System for Natural Spline</h3>
+      <p>Setting <em>m_k = 2c_k</em> (second-derivative values at nodes), the tridiagonal system for interior nodes becomes:</p>
+      <div class="math-card">
+        <div class="math-block">
+h_{k-1} m_{k-1} + 2(h_{k-1}+h_k) m_k + h_k m_{k+1}
+  = 6[(q_{k+1}-q_k)/h_k − (q_k-q_{k-1})/h_{k-1}]
+
+<span class="comment">// k = 1, 2, ..., N-1  (N−1 equations)
+// Boundary:  m₀ = 0,  m_N = 0  (natural spline)
+// → tridiagonal system, efficient O(N) solver</span>
+        </div>
+      </div>
+
+      <div class="example-box">
+        <div class="ex-label">Example — Natural spline through 6 data points</div>
+        <h4>Input data table</h4>
+        <div class="math-block">
+i :    0      1      2      3      4      5
+t :  4.00   4.35   4.57   4.76   5.26   5.88
+q :  4.19   5.77   6.57   6.23   4.90   4.77
+h :  0.35   0.22   0.19   0.50   0.62
+        </div>
+        <p style="font-size:0.82rem;color:var(--muted);margin-top:0.75rem">Five cubic segments are fitted to guarantee C² continuity throughout. The natural spline adds q̈=0 at both endpoints.</p>
+      </div>
+
+      <div class="callout tip">
+        <span class="callout-icon">💡</span>
+        <p>The tridiagonal nature of the spline system enables an efficient <strong>O(N)</strong> LU factorisation — making spline trajectory planning fast even for long sequences of waypoints.</p>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+      <div class="foot-left">ME3209 · Topic 10 · Trajectory Planning<br>Faculty of Applied Mechanics</div>
+      <div class="foot-right">Robotics &amp; Mechanisms</div>
+    </footer>
+
+  </main>
+</div>
+
+<!-- Sidebar active-link highlight on scroll -->
+<script>
+  const sections = document.querySelectorAll('[id]');
+  const navLinks = document.querySelectorAll('.nav-link');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(l => l.classList.remove('active'));
+        const active = document.querySelector(`.nav-link[href="#${entry.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-30% 0px -60% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
+
+</body>
+</html>
